@@ -6,7 +6,8 @@ from torchtext.vocab import build_vocab_from_iterator
 # Define special symbols and indices
 UNK_IDX, PAD_IDX, BOS_IDX, EOS_IDX = 0, 1, 2, 3
 # Make sure the tokens are in order of their indices to properly insert them in vocab
-SPECIAL_TOKENS = ['<unk>', '<pad>', '<bos>', '<eos>']
+SPECIAL_TOKENS = ["<unk>", "<pad>", "<bos>", "<eos>"]
+
 
 class WordTokenizer:
     def __init__(self):
@@ -15,6 +16,7 @@ class WordTokenizer:
     def tokenize(self, text: str) -> List[int]:
         tokens = text.split()
         return [self.vocab.get(token, self.vocab["<UNK>"]) for token in tokens]
+
 
 class CharTokenizer:
     def __init__(self):
@@ -34,16 +36,25 @@ class SpacyTokenizer:
         def yield_tokens(dataset_iter: Iterable[Any]) -> Iterable[str]:
             for sample in dataset_iter:
                 yield self.tokenizer(sample[index])
-        self.vocab = build_vocab_from_iterator(yield_tokens(data_iter), specials=SPECIAL_TOKENS)
+
+        self.vocab = build_vocab_from_iterator(
+            yield_tokens(data_iter), specials=SPECIAL_TOKENS
+        )
         self.vocab.set_default_index(UNK_IDX)
-    
+
     def get_vocab_size(self) -> int:
         return len(self.vocab)
-    
+
     def tokenize(self, text: str, torch: bool = False) -> List[int]:
+        # Doing tokenization and numericalization in one step
         token_ids = self.vocab(self.tokenizer(text))
+        # If torch adding a BOS and EOS token
         if torch:
             return torch.cat(
-                (torch.tensor([BOS_IDX]), torch.tensor(token_ids), torch.tensor([EOS_IDX]))
+                (
+                    torch.tensor([BOS_IDX]),
+                    torch.tensor(token_ids),
+                    torch.tensor([EOS_IDX]),
+                )
             )
         return token_ids

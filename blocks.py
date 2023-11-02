@@ -1,63 +1,69 @@
 import torch
 import torch.nn as nn
-from attention import MultiHeadedAttention, MultiQueryAttention
+from attention import MultiHeadedAttention
 
 class FeedForward(nn.Module):
-    def __init__(self, input_dim: int, hidden_dim: int = 64, dropout: float = 0.1) -> None:
+    def __init__(self, input_dim: int, dim: int = 2048, dropout: float = 0.1) -> None:
         super(FeedForward, self).__init__()
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
-        self.p = dropout
-
         self.feed_forward = nn.Sequential(
-            nn.Linear(self.input_dim, self.hidden_dim),
-            nn.Dropout(self.p),
+            nn.Linear(input_dim, dim),
             nn.ReLU(),
-            nn.Linear(self.hidden_dim, self.hidden_dim)
+            nn.Dropout(dropout),
+            nn.Linear(dim, input_dim),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.feed_forward(x)
 
-class AddNorm(nn.Module):
-    def __init__(self, input_dim: int) -> None:
-        super(AddNorm, self).__init__()
-        self.input_dim = input_dim
-        self.norm = nn.LayerNorm(self.input_dim)
-        self.drop = nn.Dropout(0.1)
-    
-    def forward(self, x: torch.Tensor, module: nn.Module) -> torch.Tensor:
-        return x + self.drop(module(self.norm(x)))
 
 class EncoderLayer(nn.Module):
-    def __init__(self, dim: int = 64):
+    def __init__(self, dim: int = 64, num_heads: int = 8, dropout: float = 0.1):
         super(EncoderLayer, self).__init__()
-        self.dim = dim
-        self.attention = MultiHeadedAttention(input_dim=dim)
-        self.add_norm1 = AddNorm(dim)
-        self.feed_forward = FeedForward(input_dim=dim, hidden_dim=dim)
-        self.add_norm2 = AddNorm(dim)
+        self.attention = MultiHeadedAttention(input_dim=dim, num_heads=num_heads)
+        self.norm = nn.LayerNorm(dim)
+        self.drop = nn.Dropout(dropout)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        z1 = self.add_norm1(x, self.attention)
-        z2 = self.add_norm2(z1, self.feed_forward)
+        self.feed_forward = FeedForward(input_dim=dim)
+        self.norm2 = nn.LayerNorm(dim)
+        self.drop2 = nn.Dropout(dropout)
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        norm_x = self.norm(x)
+        h1 = self.attention(norm_x, norm_x, norm_x, mask)
+        z1 = x + self.drop(h1)
+
+        norm_z1 = self.norm2(z1)
+        h2 = self.feed_forward(norm_z1)
+        z2 = z1 + self.drop2(h2)
         return z2
     
 class DecoderLayer(nn.Module):
-    def __init__(self, dim: int = 64):
+    def __init__(self, dim: int = 64, num_heads: int = 8, dropout: float = 0.1):
         super(DecoderLayer, self).__init__()
         self.dim = dim
-        self.attention = MultiHeadedAttention(input_dim=dim)
-        self.add_norm1 = AddNorm(dim)
+        self.attention = MultiHeadedAttention(input_dim=dim, num_heads=num_heads)
+        self.norm1 = nn.LayerNorm(dim)
+        self.drop1 = nn.Dropout(dropout)
 
-        self.enc_attention = MultiHeadedAttention(input_dim=dim)
-        self.add_norm2 = AddNorm(dim)
+        self.enc_attention = MultiHeadedAttention(input_dim=dim, num_heads=num_heads)
+        self.norm2 = nn.LayerNorm(dim)
+        self.drop2 = nn.Dropout(dropout)
 
         self.feed_forward = FeedForward(input_dim=dim, hidden_dim=dim)
-        self.add_norm3 = AddNorm(dim)
+        self.norm3 = nn.LayerNorm(dim)
+        self.drop3 = nn.Dropout(dropout)
 
-    def forward(self, x: torch.Tensor, encoder_output: torch.Tensor) -> torch.Tensor:
-        z1 = self.add_norm1(x, self.attention)
-        z2 = self.add_norm2(z1, self.enc_attention)
-        z3 = self.add_norm3(z2, self.feed_forward)
+    def forward(self, x: torch.Tensor, enc_output: torch.Tensor, src_mask: torch.Tensor, target_mask: torch.Tensor) -> torch.Tensor:
+        norm_x = self.norm1(x)
+        h1 = self.attention(norm_x, norm_x, norm_x, target_mask)
+        z1 = x + self.drop1(h1)
+
+        norm_z1 = self.norm2(z1)
+        # Getting the query from the decoder and key, value from the encoder
+        h2 = self.enc_attention(norm_z1, enc_output, enc_output, src_mask)
+        z2 = z1 + self.drop2(h2)
+
+        norm_z2 = self.norm3(z2)
+        h3 = self.feed_forward(norm_z2)
+        z3 = z2 + self.drop3(h3)
         return z3
