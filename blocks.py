@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from attention import MultiHeadedAttention
 
+
 class FeedForward(nn.Module):
     def __init__(self, input_dim: int, dim: int = 2048, dropout: float = 0.1) -> None:
         super(FeedForward, self).__init__()
@@ -36,7 +37,8 @@ class EncoderLayer(nn.Module):
         h2 = self.feed_forward(norm_z1)
         z2 = z1 + self.drop2(h2)
         return z2
-    
+
+
 class DecoderLayer(nn.Module):
     def __init__(self, dim: int = 64, num_heads: int = 8, dropout: float = 0.1):
         super(DecoderLayer, self).__init__()
@@ -53,7 +55,13 @@ class DecoderLayer(nn.Module):
         self.norm3 = nn.LayerNorm(dim)
         self.drop3 = nn.Dropout(dropout)
 
-    def forward(self, x: torch.Tensor, enc_output: torch.Tensor, src_mask: torch.Tensor, target_mask: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        enc_output: torch.Tensor,
+        src_mask: torch.Tensor,
+        target_mask: torch.Tensor,
+    ) -> torch.Tensor:
         norm_x = self.norm1(x)
         h1 = self.attention(norm_x, norm_x, norm_x, target_mask)
         z1 = x + self.drop1(h1)

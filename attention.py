@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 
+
 # Generalized Query Attention where K,V heads are split into groups. MQA is with groups=1 and MHA is groups=num_heads
 class GroupQueryAttention(nn.Module):
     def __init__(
@@ -27,7 +28,13 @@ class GroupQueryAttention(nn.Module):
         )
         self.W = nn.Linear(num_heads * self.dim, self.dim)
 
-    def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+    def forward(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        mask: torch.Tensor = None,
+    ) -> torch.Tensor:
         # x is (batch_size, seq_len, input_dim)
         z_list = []
         for i in range(self.num_heads):
@@ -35,9 +42,7 @@ class GroupQueryAttention(nn.Module):
             K = self.K[i % self.groups](key)
             V = self.V[i % self.groups](value)
             Q = self.Q[i](query)
-            attn = torch.bmm(Q, K.transpose(1, 2)) / np.sqrt(
-                self.dim
-            )
+            attn = torch.bmm(Q, K.transpose(1, 2)) / np.sqrt(self.dim)
             if mask is not None:
                 attn = attn.masked_fill(mask == 0, -1e9)
             z = torch.bmm(torch.softmax(attn, dim=-1), V)
