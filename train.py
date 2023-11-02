@@ -48,12 +48,13 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             train_loss += loss.item()
-        return train_loss / len(list(self.dataset.train_loader))
+        return train_loss / len(list(train_loader))
 
     def evaluate(self):
         # Validate the model on the validaton dataset
         model.eval()
         val_loader = self.dataset.get_data_loader(split="valid")
+        test_loss = 0.0
         for src_batch, target_batch, src_mask, target_mask in tqdm(val_loader):
             src_batch = src_batch.to(self.device)
             target_batch = target_batch.to(self.device)
@@ -65,7 +66,8 @@ class Trainer:
                 output.reshape(-1, output.shape[-1]),
                 target_batch[:, 1:].reshape(-1),
             )
-            print(loss.item())
+            test_loss += loss.item()
+        return test_loss / len(list(val_loader))
 
 
 if __name__ == "__main__":
