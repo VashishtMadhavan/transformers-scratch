@@ -7,6 +7,7 @@ import torch.optim as optim
 from models import Transformer
 from tokenizers import PAD_IDX, SpacyTokenizer
 from dataset import TranslationDataset
+from tqdm import tqdm
 
 
 class Trainer:
@@ -31,17 +32,18 @@ class Trainer:
     def train_epoch(self):
         model.train()
         train_loss = 0.0
-        for src_batch, target_batch in self.dataset.train_loader:
+        train_loader = self.dataset.get_data_loader(split="train")
+        for src_batch, target_batch, src_mask, target_mask in tqdm(train_loader):
             src_batch = src_batch.to(self.device)
             target_batch = target_batch.to(self.device)
-
-            src_mask, target_mask = self.dataset.create_mask(src_batch, target_batch)
+            src_mask = src_mask.to(self.device)
+            target_mask = target_mask.to(self.device)
 
             self.optimizer.zero_grad()
-            logits = self.model(src_batch, target_batch[:-1, :], src_mask, target_mask)
+            logits = self.model(src_batch, target_batch[:, :-1], src_mask, target_mask)
             loss = self.loss(
                 logits.reshape(-1, logits.shape[-1]),
-                target_batch[1:, :].reshape(-1),
+                target_batch[:, 1:].reshape(-1),
             )
             loss.backward()
             self.optimizer.step()
@@ -51,16 +53,17 @@ class Trainer:
     def evaluate(self):
         # Validate the model on the validaton dataset
         model.eval()
-        for src_batch, target_batch in self.dataset.val_loader:
+        val_loader = self.dataset.get_data_loader(split="valid")
+        for src_batch, target_batch, src_mask, target_mask in tqdm(val_loader):
             src_batch = src_batch.to(self.device)
             target_batch = target_batch.to(self.device)
+            src_mask = src_mask.to(self.device)
+            target_mask = target_mask.to(self.device)
 
-            src_mask, target_mask = self.dataset.create_mask(src_batch, target_batch)
-
-            output = self.model(src_batch, target_batch[:-1, :], src_mask, target_mask)
+            output = self.model(src_batch, target_batch[:, :-1], src_mask, target_mask)
             loss = self.loss(
                 output.reshape(-1, output.shape[-1]),
-                target_batch[1:, :].reshape(-1),
+                target_batch[:, 1:].reshape(-1),
             )
             print(loss.item())
 
@@ -69,6 +72,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=1)
     args = parser.parse_args()
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     dataset = TranslationDataset(
         src_lang="en",
@@ -79,14 +84,21 @@ if __name__ == "__main__":
 
     model = Transformer(
         dim=512,
-        vocab_size=dataset.get_vocab_size(type="src"),
+        src_vocab_size=dataset.get_vocab_size("src"),
+        target_vocab_size=dataset.get_vocab_size("tgt"),
+        num_layers=6,
+        num_heads=8,
+        dropout=0.1,
     )
+
+    model.to(device)
 
     trainer = Trainer(
         dataset,
         model,
+        device,
     )
 
-    for epoch in args.epochs:
+    for epoch in range(args.epochs):
         trainer.train_epoch()
         trainer.evaluate()

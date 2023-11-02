@@ -51,7 +51,7 @@ class DecoderLayer(nn.Module):
         self.norm2 = nn.LayerNorm(dim)
         self.drop2 = nn.Dropout(dropout)
 
-        self.feed_forward = FeedForward(input_dim=dim, hidden_dim=dim)
+        self.feed_forward = FeedForward(input_dim=dim)
         self.norm3 = nn.LayerNorm(dim)
         self.drop3 = nn.Dropout(dropout)
 

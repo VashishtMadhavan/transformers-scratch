@@ -1,4 +1,5 @@
-from typing import List, Iterable, Any
+import torch
+from typing import List, Iterable, Any, Union
 from torchtext.data.utils import get_tokenizer
 from torchtext.vocab import build_vocab_from_iterator
 
@@ -45,11 +46,13 @@ class SpacyTokenizer:
     def get_vocab_size(self) -> int:
         return len(self.vocab)
 
-    def tokenize(self, text: str, torch: bool = False) -> List[int]:
+    def tokenize(
+        self, text: str, with_torch: bool = False
+    ) -> Union[List[int], torch.Tensor]:
         # Doing tokenization and numericalization in one step
         token_ids = self.vocab(self.tokenizer(text))
         # If torch adding a BOS and EOS token
-        if torch:
+        if with_torch:
             return torch.cat(
                 (
                     torch.tensor([BOS_IDX]),

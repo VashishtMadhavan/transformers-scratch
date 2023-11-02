@@ -20,11 +20,11 @@ class TranslationDataset:
         self.src_tokenizer = src_tokenizer
         self.tgt_tokenizer = tgt_tokenizer
 
-        self.src_tokenizer = self.src_tokenizer.build_vocab(
+        self.src_tokenizer.build_vocab(
             self.get_data_iter(split="train"),
             index=0,
         )
-        self.tgt_tokenizer = self.tgt_tokenizer.build_vocab(
+        self.tgt_tokenizer.build_vocab(
             self.get_data_iter(split="train"),
             index=1,
         )
@@ -39,10 +39,10 @@ class TranslationDataset:
             collate_fn=self._collate_fn,
         )
 
-    def get_vocab_size(self, type: str = "src") -> int:
+    def get_vocab_size(self, vocab_type: str = "src") -> int:
         return (
             self.src_tokenizer.get_vocab_size()
-            if type == "src"
+            if vocab_type == "src"
             else self.tgt_tokenizer.get_vocab_size()
         )
 
@@ -50,10 +50,10 @@ class TranslationDataset:
         src_batch, tgt_batch = [], []
         for src_sample, tgt_sample in batch:
             src_batch.append(
-                self.src_tokenizer.tokenize(src_sample.strip("\n"), torch=True)
+                self.src_tokenizer.tokenize(src_sample.strip("\n"), with_torch=True)
             )
             tgt_batch.append(
-                self.tgt_tokenizer.tokenize(tgt_sample.strip("\n"), torch=True)
+                self.tgt_tokenizer.tokenize(tgt_sample.strip("\n"), with_torch=True)
             )
 
         # Padding Sequence
@@ -61,5 +61,5 @@ class TranslationDataset:
         tgt_batch = pad_sequence(tgt_batch, padding_value=PAD_IDX)
 
         # Apply Mask
-        src_mask, tgt_mask = create_mask(src_batch, tgt_batch)
-        return src_batch, tgt_batch, src_mask, tgt_mask
+        src_mask, tgt_mask = create_mask(src_batch, tgt_batch[:-1, :])
+        return src_batch.transpose(0, 1), tgt_batch.transpose(0, 1), src_mask, tgt_mask

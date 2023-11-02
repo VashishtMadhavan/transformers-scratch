@@ -76,10 +76,10 @@ class Transformer(nn.Module):
 
         # Getting input embedding
         self.src_embed = nn.Sequential(
-            TokenEmbedding(src_vocab_size, dim), PositionalEncoding(dim)
+            TokenEmbedding(src_vocab_size, dim), PositionalEncoding(dim, dropout)
         )
         self.target_embed = nn.Sequential(
-            TokenEmbedding(target_vocab_size, dim), PositionalEncoding(dim)
+            TokenEmbedding(target_vocab_size, dim), PositionalEncoding(dim, dropout)
         )
 
     def forward(
